@@ -22,6 +22,7 @@ import { TeacherAIPage } from './pages/TeacherAIPage';
 import { StudentLivePage } from './pages/StudentLivePage';
 import { StudentReportsPage } from './pages/StudentReportsPage';
 import { StudentResultsPage } from './pages/StudentResultsPage';
+import { IS_DEMO } from './services/api';
 
 export default function App() {
   // For GitHub Pages project site https://<username>.github.io/BrainArena/
@@ -30,6 +31,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter basename={basename}>
+        {IS_DEMO && (
+          <div className="fixed inset-x-0 top-0 z-[100] flex items-center justify-center gap-2 bg-amber-500/95 px-4 py-1.5 text-center text-[12px] font-semibold text-amber-950">
+            DEMO MODE — no backend connected. Data is mocked locally and not saved. Set VITE_API_URL to enable live features.
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
