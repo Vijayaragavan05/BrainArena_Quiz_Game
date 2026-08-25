@@ -6,13 +6,13 @@ This project is frontend (Vite + React) + backend (Express + MongoDB).
 ## Host link
 After deploy, your site will be at:
 ```
-https://<YOUR_GITHUB_USERNAME>.github.io/BrainArena/
+https://<YOUR_GITHUB_USERNAME>.github.io/BrainArena_Quiz_Game/
 ```
-Example: if your GitHub username is `vijayaragavan4818`, the link is `https://vijayaragavan4818.github.io/BrainArena/`
+Example: if your GitHub username is `vijayaragavan4818`, the link is `https://vijayaragavan4818.github.io/BrainArena_Quiz_Game/`
 
 ## 1) Create GitHub repo
 1. Go to https://github.com/new
-2. Repo name: `BrainArena` (must match — we configured `vite.config.ts:6` base `/BrainArena/`)
+2. Repo name: `BrainArena_Quiz_Game` (must match — we configured `vite.config.ts:6` base `/BrainArena_Quiz_Game/`)
 3. Visibility: Public
 4. Do NOT init with README
 
@@ -41,7 +41,7 @@ git push -u origin main
 
 The workflow does:
 - `npm ci` in `frontend/`
-- `npm run build` with `GITHUB_PAGES=true` (sets base `/BrainArena/` and basename via `App.tsx:28`)
+- `npm run build` with `GITHUB_PAGES=true` (sets base `/BrainArena_Quiz_Game/` and basename via `App.tsx:28`)
 - Copies `dist/index.html` → `dist/404.html` for SPA routing (fixes refresh 404)
 - Publishes `frontend/dist` to Pages
 
@@ -80,4 +80,4 @@ For local dev, keep `frontend/.env` unset — it falls back to `/api` proxy to `
 ## Troubleshooting
 - Refresh gives 404 on Pages → workflow already copies 404.html; if you changed routing, ensure `BrowserRouter basename` matches `vite base`
 - API 502 after Pages deploy → `VITE_API_URL` not set or backend CORS not allowing Pages origin — set `CORS_ORIGIN` on backend
-- White screen after deploy → check Actions logs → `frontend/dist` must contain `index.html` with `/BrainArena/assets/...`
+- White screen after deploy → check Actions logs → `frontend/dist` must contain `index.html` with `/BrainArena_Quiz_Game/assets/...`
