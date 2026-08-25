@@ -1,0 +1,27 @@
+# BrainArena backend — Render deploy config
+# Deploy: https://dashboard.render.com/select-repo?type=web (connect this GitHub repo)
+# Render will use rootDir=backend, build with `npm install && npm run build`, start `npm start`.
+services:
+  - type: web
+    name: brainarena-api
+    rootDir: backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://vijayaragavan05.github.io
+      - key: FRONTEND_URL
+        value: https://vijayaragavan05.github.io
+      - key: AI_PROVIDER
+        value: mock

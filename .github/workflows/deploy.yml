@@ -38,6 +38,7 @@ jobs:
         env:
           GITHUB_PAGES: "true"
           VITE_API_URL: ${{ vars.VITE_API_URL || secrets.VITE_API_URL }}
+          VITE_SOCKET_URL: ${{ vars.VITE_SOCKET_URL || secrets.VITE_SOCKET_URL }}
 
       - name: Copy 404 for SPA
         run: cp frontend/dist/index.html frontend/dist/404.html
