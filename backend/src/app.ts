@@ -16,7 +16,7 @@ export function createApp(): Express {
     app.use(morgan('dev'));
   }
 
-  app.get('/', (_req, res) => {
+  app.get('/', (_req: express.Request, res: express.Response) => {
     res.json({ name: 'BrainArena API', version: '0.1.0' });
   });
 
