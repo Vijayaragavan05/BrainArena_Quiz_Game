@@ -5,6 +5,8 @@ import type { ApiHealth } from '../types';
 import { Logo } from '../components/ui/Logo';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { IconBolt, IconChart, IconTrophy, IconUsers } from '../components/ui/icons';
+import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const FEATURES = [
   {
@@ -37,6 +39,7 @@ const STEPS = [
 ];
 
 export function HomePage() {
+  const { isAuthenticated, user } = useAuth();
   const [health, setHealth] = useState<ApiHealth | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +49,10 @@ export function HomePage() {
       .then((res) => setHealth(res.data))
       .catch((err) => setError(err.response?.data?.error || err.message));
   }, []);
+
+  if (isAuthenticated) {
+    return <Navigate to={user?.role === 'teacher' ? '/teacher' : '/student'} replace />;
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0a0a12]">
