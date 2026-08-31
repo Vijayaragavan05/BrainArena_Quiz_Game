@@ -28,10 +28,11 @@ const mockAdapter: AxiosAdapter = async (config): Promise<AxiosResponse> => {
   let body: any = { success: true, data: {} };
 
   if (url.includes('/auth/login') || url.includes('/auth/register')) {
-    const role: 'teacher' | 'student' = payload.role === 'teacher' ? 'teacher' : 'student';
+    const allowed = ['teacher', 'student', 'admin'];
+    const role = allowed.includes(payload.role) ? payload.role : 'student';
     const user = {
       id: 'demo-user',
-      name: payload.name || (role === 'teacher' ? 'Demo Teacher' : 'Demo Student'),
+      name: payload.name || (role === 'teacher' ? 'Demo Teacher' : role === 'admin' ? 'Demo Admin' : 'Demo Student'),
       email: payload.email || 'demo@brainarena.app',
       role,
     };
@@ -55,6 +56,14 @@ const mockAdapter: AxiosAdapter = async (config): Promise<AxiosResponse> => {
     body = { analysis: null, insights: [] };
   } else if (url.includes('/import') || url.includes('/export')) {
     body = { jobId: 'demo', status: 'done', url: '#' };
+  } else if (url.includes('/admin/users')) {
+    if (url.includes('/approve') || url.includes('/reject')) {
+      body = { user: { _id: 'demo', name: 'Demo User', email: 'demo@brainarena.app', role: 'teacher', status: url.includes('/approve') ? 'approved' : 'rejected' } };
+    } else {
+      body = { users: [] };
+    }
+  } else if (url.includes('/admin/stats')) {
+    body = { total: 0, pending: 0, approved: 0, rejected: 0, teachers: 0, students: 0, admins: 1 };
   } else if (url.includes('/ai/')) {
     body = {
       questions: [

@@ -21,7 +21,7 @@ const loginSchema = z.object({
 
 const SALT_ROUNDS = 10;
 
-function toAuthResponse(user: { _id: unknown; name: string; email: string; role: string }) {
+function toAuthResponse(user: { _id: unknown; name: string; email: string; role: string; status: string }) {
   return {
     token: signToken(String(user._id), user.role),
     user: {
@@ -29,6 +29,7 @@ function toAuthResponse(user: { _id: unknown; name: string; email: string; role:
       name: user.name,
       email: user.email,
       role: user.role,
+      status: user.status,
     },
   };
 }
@@ -47,9 +48,19 @@ router.post(
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await User.create({ name, email, passwordHash, role });
+    // Teachers require admin approval; students are auto-approved
+    const status = role === 'teacher' ? 'pending' : 'approved';
+    const user = await User.create({ name, email, passwordHash, role, status });
 
-    res.status(201).json(toAuthResponse(user));
+    if (status === 'pending') {
+      res.status(201).json({
+        message: 'Registration successful — awaiting admin approval. You will be able to log in once approved.',
+        user: { _id: String(user._id), name: user.name, email: user.email, role: user.role, status: user.status },
+      });
+      return;
+    }
+
+    res.status(201).json(toAuthResponse(user as any));
   },
 );
 
@@ -66,7 +77,14 @@ router.post('/login', validate(loginSchema), async (req: Request, res: Response)
     throw new AppError(401, 'Invalid email or password');
   }
 
-  res.json(toAuthResponse(user));
+  if ((user as any).status === 'pending') {
+    throw new AppError(403, 'Your account is pending admin approval');
+  }
+  if ((user as any).status === 'rejected') {
+    throw new AppError(403, 'Your account has been rejected by admin');
+  }
+
+  res.json(toAuthResponse(user as any));
 });
 
 router.get('/me', requireAuth, (req: Request, res: Response) => {

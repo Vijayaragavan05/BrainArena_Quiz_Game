@@ -7,6 +7,8 @@ import { setupQuizSockets } from './sockets/quiz.engine.js';
 
 async function main(): Promise<void> {
   await connectDB();
+  const { seedAdmin } = await import('./utils/seedAdmin.js');
+  await seedAdmin();
 
   const app = createApp();
   const server = http.createServer(app);

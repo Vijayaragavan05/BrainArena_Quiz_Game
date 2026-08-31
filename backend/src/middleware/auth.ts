@@ -23,12 +23,20 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     throw new AppError(401, 'User no longer exists');
   }
 
+  if ((user as any).status === 'pending') {
+    throw new AppError(403, 'Account pending admin approval');
+  }
+  if ((user as any).status === 'rejected') {
+    throw new AppError(403, 'Account rejected');
+  }
+
   req.user = {
     _id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
-  };
+    status: (user as any).status,
+  } as any;
   next();
 }
 

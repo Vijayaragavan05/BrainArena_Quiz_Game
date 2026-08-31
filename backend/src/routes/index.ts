@@ -8,6 +8,7 @@ import importRouter from './import.routes.js';
 import bankRouter from './bank.routes.js';
 import aiRouter from './ai.routes.js';
 import exportRouter from './export.routes.js';
+import adminRouter from './admin.routes.js';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/api/import', importRouter);
 router.use('/api/bank', bankRouter);
 router.use('/api/ai', aiRouter);
 router.use('/api/export', exportRouter);
+router.use('/api/admin', adminRouter);
 
 export default router;

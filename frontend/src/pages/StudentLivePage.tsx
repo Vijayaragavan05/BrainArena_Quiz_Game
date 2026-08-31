@@ -250,7 +250,7 @@ export function StudentLivePage() {
             <div className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-300">
               <IconUsers className="h-4 w-4 text-brand-400" />
               <span>
-                <span className="font-bold text-slate-100">{participants.length}</span> player(s) joined
+                <span className="font-bold text-slate-100">{participants.length}/50</span> player(s) joined
               </span>
             </div>
             <div className="mt-3 flex max-h-36 flex-wrap justify-center gap-2 overflow-y-auto">

@@ -1,5 +1,10 @@
-export const USER_ROLES = ['teacher', 'student'] as const;
+export const USER_ROLES = ['teacher', 'student', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+export const USER_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
+
+export const MAX_PARTICIPANTS_PER_QUIZ = 50;
 
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];

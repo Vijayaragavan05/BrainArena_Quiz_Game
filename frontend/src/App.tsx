@@ -22,6 +22,9 @@ import { TeacherAIPage } from './pages/TeacherAIPage';
 import { StudentLivePage } from './pages/StudentLivePage';
 import { StudentReportsPage } from './pages/StudentReportsPage';
 import { StudentResultsPage } from './pages/StudentResultsPage';
+import { AdminLayout } from './layouts/AdminLayout';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 import { IS_DEMO } from './services/api';
 
 export default function App() {
@@ -73,6 +76,19 @@ export default function App() {
             <Route path="join" element={<StudentLivePage />} />
             <Route path="reports" element={<StudentReportsPage />} />
             <Route path="results/:resultId" element={<StudentResultsPage />} />
+          </Route>
+
+          <Route
+            path="/admin"
+            element={
+              <RequireRole role="admin">
+                <AdminLayout />
+              </RequireRole>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsersPage mode="pending" />} />
+            <Route path="all" element={<AdminUsersPage mode="all" />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

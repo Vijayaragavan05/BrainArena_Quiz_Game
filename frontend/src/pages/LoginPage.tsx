@@ -25,7 +25,8 @@ export function LoginPage() {
     try {
       const res = await login({ email, password });
       setAuth(res.token, res.user);
-      navigate(res.user.role === 'teacher' ? '/teacher' : '/student', { replace: true });
+      const dest = (res.user as any).role === 'admin' ? '/admin' : res.user.role === 'teacher' ? '/teacher' : '/student';
+      navigate(dest, { replace: true });
     } catch (err) {
       setError(getErrorMessage(err, 'Login failed. Please try again.'));
     } finally {

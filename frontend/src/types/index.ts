@@ -1,10 +1,11 @@
-export type Role = 'teacher' | 'student';
+export type Role = 'teacher' | 'student' | 'admin';
 
 export interface User {
   _id: string;
   name: string;
   email: string;
   role: Role;
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
 

@@ -1,11 +1,12 @@
 import { Schema, model } from 'mongoose';
-import { USER_ROLES, type UserRole } from '../utils/constants.js';
+import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from '../utils/constants.js';
 
 export interface IUser {
   name: string;
   email: string;
   passwordHash: string;
   role: UserRole;
+  status: UserStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +24,7 @@ const userSchema = new Schema<IUser>(
     },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: USER_ROLES, required: true, index: true },
+    status: { type: String, enum: USER_STATUSES, required: true, default: 'approved', index: true },
   },
   { timestamps: true },
 );

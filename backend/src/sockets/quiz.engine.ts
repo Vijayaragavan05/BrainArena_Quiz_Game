@@ -8,6 +8,7 @@ import { verifyToken } from '../utils/jwt.js';
 import { calculateQuestionScore } from '../services/scoring.service.js';
 import { finalizeQuiz, persistAnswer, type LiveAnswerInput, type LiveQuestionMeta } from '../services/analytics.service.js';
 import type { PopulatedQuiz } from '../types/populated.js';
+import { MAX_PARTICIPANTS_PER_QUIZ } from '../utils/constants.js';
 
 const ANSWER_GRACE_MS = 1000;
 
@@ -258,6 +259,11 @@ export function setupQuizSockets(io: Server): void {
         const game = GAMES.get(session.pin);
         if (!game) {
           return socket.emit('error', { message: 'This quiz session is not active' });
+        }
+
+        const isNew = !game.participants.has(String(user._id));
+        if (isNew && game.participants.size >= MAX_PARTICIPANTS_PER_QUIZ) {
+          return socket.emit('error', { message: `This quiz is full (${MAX_PARTICIPANTS_PER_QUIZ} players max)` });
         }
 
         const participant = await Participant.findOneAndUpdate(

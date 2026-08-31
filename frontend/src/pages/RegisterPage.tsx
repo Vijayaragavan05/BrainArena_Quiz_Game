@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { register } from '../services/auth';
-import type { Role } from '../types';
+
 import { useHomePath } from '../hooks/useHome';
 import { getErrorMessage } from '../utils/errors';
 import { Logo } from '../components/ui/Logo';
@@ -20,7 +20,7 @@ export function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('student');
+  const [role, setRole] = useState<'teacher' | 'student'>('student');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,9 +29,13 @@ export function RegisterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await register({ name, email, password, role });
-      login(res.token, res.user);
-      navigate(role === 'teacher' ? '/teacher' : '/student', { replace: true });
+      const res: any = await register({ name, email, password, role });
+      if (res.token) {
+        login(res.token, res.user);
+        navigate(role === 'teacher' ? '/teacher' : '/student', { replace: true });
+      } else {
+        setError(res.message || 'Registration successful! Your teacher account is pending admin approval. You will be able to log in once approved.');
+      }
     } catch (err) {
       setError(getErrorMessage(err, 'Registration failed. Please try again.'));
     } finally {
@@ -39,7 +43,7 @@ export function RegisterPage() {
     }
   };
 
-  const roleOptions: { value: Role; title: string; desc: string }[] = [
+  const roleOptions: { value: 'teacher' | 'student'; title: string; desc: string }[] = [
     { value: 'student', title: 'Student', desc: 'Join live quizzes & track my reports' },
     { value: 'teacher', title: 'Teacher', desc: 'Create quizzes, host live games & analyze' },
   ];

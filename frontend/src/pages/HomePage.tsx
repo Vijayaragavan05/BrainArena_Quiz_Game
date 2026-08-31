@@ -51,7 +51,8 @@ export function HomePage() {
   }, []);
 
   if (isAuthenticated) {
-    return <Navigate to={user?.role === 'teacher' ? '/teacher' : '/student'} replace />;
+    const dest = (user as any)?.role === 'admin' ? '/admin' : user?.role === 'teacher' ? '/teacher' : '/student';
+    return <Navigate to={dest} replace />;
   }
 
   return (
