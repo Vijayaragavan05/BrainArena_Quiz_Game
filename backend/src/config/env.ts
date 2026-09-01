@@ -15,6 +15,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   AI_PROVIDER: z.enum(['gemini', 'openai', 'mock', 'none']).default('none'),
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_TUNED_MODEL: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
 });
 

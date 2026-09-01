@@ -43,7 +43,7 @@ export function getAIConfig() {
     enabled: provider !== 'none',
     model:
       provider === 'gemini'
-        ? 'gemini-1.5-flash'
+        ? env('GEMINI_TUNED_MODEL') || 'gemini-1.5-flash'
         : provider === 'openai'
           ? 'gpt-4o-mini'
           : provider === 'mock'
@@ -106,7 +106,10 @@ function validateQuestion(q: Record<string, unknown>): AIGeneratedQuestion | nul
 async function callGemini(params: GenerateParams): Promise<AIGeneratedQuestion[]> {
   const apiKey = env('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const tuned = env('GEMINI_TUNED_MODEL');
+  const url = tuned
+    ? `https://generativelanguage.googleapis.com/v1beta/${tuned}:generateContent?key=${apiKey}`
+    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -271,7 +274,10 @@ Respond ONLY with a JSON array (no markdown, no code fences):
 async function callGeminiRaw(prompt: string): Promise<string> {
   const apiKey = env('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const tuned = env('GEMINI_TUNED_MODEL');
+  const url = tuned
+    ? `https://generativelanguage.googleapis.com/v1beta/${tuned}:generateContent?key=${apiKey}`
+    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
