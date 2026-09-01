@@ -17,6 +17,12 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_TUNED_MODEL: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  EMAIL_HOST: z.string().optional(),
+  EMAIL_PORT: z.coerce.number().optional(),
+  EMAIL_USER: z.string().optional(),
+  EMAIL_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  EMAIL_SECURE: z.coerce.boolean().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -35,6 +35,9 @@ router.post('/users/:id/approve', async (req: Request, res: Response) => {
   if (!user) throw new AppError(404, 'User not found');
   (user as any).status = 'approved';
   await user.save();
+  const { sendMail, approvedMail } = await import('../utils/mailer.js');
+  const { subject, html } = approvedMail(user.name);
+  void sendMail(user.email, subject, html);
   res.json({ user: { _id: String(user._id), name: user.name, email: user.email, role: user.role, status: (user as any).status } });
 });
 
@@ -43,6 +46,9 @@ router.post('/users/:id/reject', async (req: Request, res: Response) => {
   if (!user) throw new AppError(404, 'User not found');
   (user as any).status = 'rejected';
   await user.save();
+  const { sendMail, rejectedMail } = await import('../utils/mailer.js');
+  const { subject, html } = rejectedMail(user.name);
+  void sendMail(user.email, subject, html);
   res.json({ user: { _id: String(user._id), name: user.name, email: user.email, role: user.role, status: (user as any).status } });
 });
 
