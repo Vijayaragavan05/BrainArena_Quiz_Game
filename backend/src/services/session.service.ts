@@ -3,8 +3,9 @@ import { Quiz } from '../models/Quiz.js';
 import { User } from '../models/User.js';
 import { generatePin } from './scoring.service.js';
 import { AppError } from '../middleware/error.js';
+import { TEAM_BATTLE_TEAMS } from '../utils/constants.js';
 
-export async function createSession(teacherId: string, quizId: string) {
+export async function createSession(teacherId: string, quizId: string, opts?: { isTeamBattle?: boolean }) {
   const quiz = await Quiz.findOne({ _id: quizId, teacher: teacherId }).populate('questions');
   if (!quiz) {
     throw new AppError(404, 'Quiz not found');
@@ -18,13 +19,18 @@ export async function createSession(teacherId: string, quizId: string) {
     pin = generatePin();
   }
 
+  const isTeamBattle = Boolean(opts?.isTeamBattle);
+  const teams = isTeamBattle ? [...TEAM_BATTLE_TEAMS] : [];
+
   const session = await QuizSession.create({
     quiz: quiz._id,
     teacher: teacherId,
     pin,
     status: 'lobby',
     currentQuestionIndex: 0,
-  });
+    isTeamBattle,
+    teams,
+  } as any);
 
   return session;
 }
@@ -46,5 +52,7 @@ export async function findJoinableSession(pin: string) {
     quizTitle: quiz?.title ?? 'Quiz',
     quizTopic: quiz?.topic ?? '',
     teacherName: teacher?.name ?? 'Teacher',
+    isTeamBattle: (session as any).isTeamBattle ?? false,
+    teams: (session as any).teams ?? [],
   };
 }

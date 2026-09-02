@@ -11,6 +11,8 @@ export interface IQuizSession {
   startedAt?: Date;
   endedAt?: Date;
   activeUntil?: Date;
+  isTeamBattle: boolean;
+  teams: Array<{ id: string; name: string; color: string }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +28,17 @@ const quizSessionSchema = new Schema<IQuizSession>(
     startedAt: { type: Date },
     endedAt: { type: Date },
     activeUntil: { type: Date },
+    isTeamBattle: { type: Boolean, required: true, default: false },
+    teams: {
+      type: [
+        {
+          id: { type: String, required: true },
+          name: { type: String, required: true },
+          color: { type: String, required: true },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true },
 );

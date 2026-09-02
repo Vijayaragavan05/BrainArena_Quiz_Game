@@ -19,7 +19,7 @@ const OPTION_COLORS = [
   'from-cyan-500/20 to-cyan-600/10 border-cyan-500/40 text-cyan-100',
 ];
 
-type Stage = 'joining' | 'lobby' | 'question' | 'between' | 'complete';
+type Stage = 'joining' | 'team-pick' | 'lobby' | 'question' | 'between' | 'complete';
 
 export function StudentLivePage() {
   const { token } = useAuth();
@@ -40,6 +40,9 @@ export function StudentLivePage() {
   const [myRank, setMyRank] = useState<LeaderboardRow | null>(null);
   const [totalScore, setTotalScore] = useState(0);
   const [view, setView] = useState<'board' | 'compare'>('board');
+  const [teamPick, setTeamPick] = useState<{ isTeamBattle: boolean; teams: Array<{ id: string; name: string; color: string }> } | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [teamLeaderboard, setTeamLeaderboard] = useState<Array<{ teamId: string; teamName: string; color: string; score: number; members: number }>>([]);
 
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
 
@@ -55,8 +58,8 @@ export function StudentLivePage() {
 
     socket.on('error', onError);
     socket.on('student:joined', () => setStage('lobby'));
-    socket.on('lobby:update', (p: { participants: Array<{ studentId: string; name: string }> }) =>
-      setParticipants(p.participants),
+    socket.on('lobby:update', (p: { participants: Array<{ studentId: string; name: string; teamId?: string; teamName?: string }> }) =>
+      setParticipants(p.participants as any),
     );
 
     socket.on('question:start', (q: QuestionStartPayload) => {
@@ -79,8 +82,9 @@ export function StudentLivePage() {
       setStage('between');
     });
 
-    socket.on('leaderboard:update', (lb: { rankings: LeaderboardRow[] }) => {
+    socket.on('leaderboard:update', (lb: { rankings: LeaderboardRow[]; teamLeaderboard?: Array<{ teamId: string; teamName: string; color: string; score: number; members: number }> }) => {
       setLeaderboard(lb.rankings);
+      if ((lb as any).teamLeaderboard) setTeamLeaderboard((lb as any).teamLeaderboard);
     });
 
     socket.on('quiz:complete', () => {
@@ -88,7 +92,24 @@ export function StudentLivePage() {
     });
 
     if (token) {
-      socket.emit('student:join', { token, pin });
+      // Fetch session info to know if Team Battle
+      import('../services/api').then(({ api }) =>
+        api
+          .get(`/sessions/lookup/${pin}`)
+          .then((res) => {
+            const info = (res.data as any).session;
+            if (info?.isTeamBattle) {
+              setTeamPick({ isTeamBattle: true, teams: info.teams });
+              setStage('team-pick');
+            } else {
+              socket.emit('student:join', { token, pin });
+            }
+          })
+          .catch(() => {
+            // fallback: try join directly (server will error if team required)
+            socket.emit('student:join', { token, pin });
+          }),
+      );
     }
 
     return () => {
@@ -150,6 +171,46 @@ export function StudentLivePage() {
       <Centered>
         <Spinner className="h-8 w-8" />
         <p className="mt-4 text-slate-400">Joining quiz {pin}…</p>
+      </Centered>
+    );
+  }
+
+  if (stage === 'team-pick') {
+    return (
+      <Centered>
+        <div className="animate-scale-in card-surface w-full max-w-md p-8 text-center">
+          <h1 className="font-display text-2xl font-bold">👥 Team Battle</h1>
+          <p className="mt-2 text-sm text-slate-400">This quiz is Team Battle — pick your team to join.</p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {(teamPick?.teams ?? [
+              { id: 'A', name: 'Team A', color: '#ef4444' },
+              { id: 'B', name: 'Team B', color: '#3b82f6' },
+              { id: 'C', name: 'Team C', color: '#10b981' },
+              { id: 'D', name: 'Team D', color: '#f59e0b' },
+            ]).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSelectedTeam(t.id)}
+                className={`rounded-2xl border-2 p-4 font-bold transition ${selectedTeam === t.id ? 'bg-white text-slate-900 shadow-glow' : 'bg-white/[0.06] text-white hover:bg-white/[0.1]'}`}
+                style={{ borderColor: selectedTeam === t.id ? t.color : `${t.color}40` }}
+              >
+                <span className="inline-block h-3 w-3 rounded-full" style={{ background: t.color }} /> {t.name}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              if (!selectedTeam || !token) return;
+              socketRef.current?.emit('student:join', { token, pin, teamId: selectedTeam });
+              setStage('joining');
+            }}
+            disabled={!selectedTeam}
+            className="btn-primary mt-6 w-full !py-3 disabled:opacity-40"
+          >
+            Join {selectedTeam ? `Team ${selectedTeam}` : '— pick a team'}
+          </button>
+          {error && <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+        </div>
       </Centered>
     );
   }
@@ -254,16 +315,25 @@ export function StudentLivePage() {
               </span>
             </div>
             <div className="mt-3 flex max-h-36 flex-wrap justify-center gap-2 overflow-y-auto">
-              {participants.map((p, i) => (
+              {participants.map((p: any, i: number) => (
                 <span
                   key={p.studentId}
                   className="animate-fade-in rounded-full border border-white/[0.08] bg-surface-900/60/[0.06] px-3 py-1 text-xs text-slate-300"
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
-                  {p.name}
+                  {p.teamName ? <span className="mr-1 text-[10px] font-bold opacity-60">{p.teamName}</span> : null}{p.name}
                 </span>
               ))}
             </div>
+            {teamLeaderboard.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+                {teamLeaderboard.map((t) => (
+                  <div key={t.teamId} className="rounded-xl border bg-white/[0.04] px-3 py-2 text-xs" style={{ borderColor: `${t.color}40` }}>
+                    <span className="font-bold" style={{ color: t.color }}>{t.teamName}</span> <span className="text-slate-400">· {t.score} pts ({t.members})</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Centered>
       )}
@@ -399,6 +469,13 @@ export function StudentLivePage() {
                     </div>
                   ))}
                 </div>
+                {teamLeaderboard.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {teamLeaderboard.map((t) => (
+                      <div key={t.teamId} className="rounded-xl border bg-white/[0.04] px-3 py-2 text-xs font-semibold" style={{ borderColor: `${t.color}40`, color: t.color }}>{t.teamName} · <span className="text-white">{t.score} pts</span></div>
+                    ))}
+                  </div>
+                )}
                 {myRank && (
                   <p className="mt-4 text-center text-sm text-slate-300">
                     Your rank: <span className="font-bold text-brand-400">#{myRank.rank}</span>

@@ -6,6 +6,14 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 
 export const MAX_PARTICIPANTS_PER_QUIZ = 50;
 
+export const TEAM_BATTLE_TEAMS = [
+  { id: 'A', name: 'Team A', color: '#ef4444' },
+  { id: 'B', name: 'Team B', color: '#3b82f6' },
+  { id: 'C', name: 'Team C', color: '#10b981' },
+  { id: 'D', name: 'Team D', color: '#f59e0b' },
+] as const;
+export type TeamId = (typeof TEAM_BATTLE_TEAMS)[number]['id'];
+
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
 

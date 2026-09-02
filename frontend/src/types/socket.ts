@@ -1,6 +1,8 @@
 export interface LobbyParticipant {
   studentId: string;
   name: string;
+  teamId?: string;
+  teamName?: string;
 }
 
 export interface LiveQuestion {
@@ -37,10 +39,23 @@ export interface LeaderboardRow {
   unanswered: number;
   accuracy: number;
   avgResponseTimeMs: number;
+  teamId?: string;
+  teamName?: string;
+}
+
+export interface TeamLeaderboardRow {
+  teamId: string;
+  teamName: string;
+  color: string;
+  score: number;
+  members: number;
+  correct: number;
 }
 
 export interface LeaderboardPayload {
   rankings: LeaderboardRow[];
+  teamLeaderboard?: TeamLeaderboardRow[];
+  isTeamBattle?: boolean;
 }
 
 export interface AnswerAckPayload {
@@ -62,4 +77,6 @@ export interface HostStartedPayload {
   quizTitle: string;
   totalQuestions: number;
   durationMs: number;
+  isTeamBattle?: boolean;
+  teams?: Array<{ id: string; name: string; color: string }>;
 }

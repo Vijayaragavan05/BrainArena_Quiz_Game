@@ -13,6 +13,8 @@ export interface IParticipant {
   rank: number;
   lastSeenAt: Date;
   disconnected: boolean;
+  teamId?: string;
+  teamName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +33,8 @@ const participantSchema = new Schema<IParticipant>(
     rank: { type: Number, required: true, default: 0 },
     lastSeenAt: { type: Date, required: true, default: Date.now },
     disconnected: { type: Boolean, required: true, default: false },
+    teamId: { type: String, required: false, index: true },
+    teamName: { type: String, required: false },
   },
   { timestamps: true },
 );

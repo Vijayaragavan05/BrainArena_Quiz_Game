@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../services/socket';
 import { IconChart, IconPlay, IconTrophy, IconUsers, IconX } from '../components/ui/icons';
-import { Spinner } from '../components/ui/Spinner';
 import type {
   QuestionStartPayload,
   QuestionEndPayload,
@@ -21,13 +20,15 @@ export function TeacherLivePage() {
   const navigate = useNavigate();
 
   const [stage, setStage] = useState<Stage>('starting');
+  const [setupTeamBattle, setSetupTeamBattle] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<HostStartedPayload | null>(null);
-  const [participants, setParticipants] = useState<Array<{ studentId: string; name: string }>>([]);
+  const [participants, setParticipants] = useState<Array<{ studentId: string; name: string; teamId?: string; teamName?: string }>>([]);
   const [question, setQuestion] = useState<QuestionStartPayload | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [questionEnd, setQuestionEnd] = useState<QuestionEndPayload | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [teamLeaderboard, setTeamLeaderboard] = useState<Array<{ teamId: string; teamName: string; color: string; score: number; members: number }>>([]);
   const [completedQuizId, setCompletedQuizId] = useState<string | null>(null);
 
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
@@ -40,11 +41,12 @@ export function TeacherLivePage() {
     const onError = (e: { message: string }) => setError(e.message);
 
     socket.on('error', onError);
-    socket.on('host:started', (p: HostStartedPayload) => {
-      setSession(p);
+    socket.on('host:started', (p: HostStartedPayload & { isTeamBattle?: boolean; teams?: Array<{ id: string; name: string; color: string }> }) => {
+      setSession(p as HostStartedPayload);
+      (setSession as any)._teamMeta = { isTeamBattle: (p as any).isTeamBattle, teams: (p as any).teams };
       setStage('lobby');
     });
-    socket.on('lobby:update', (p: { participants: Array<{ studentId: string; name: string }> }) =>
+    socket.on('lobby:update', (p: { participants: Array<{ studentId: string; name: string; teamId?: string; teamName?: string }>; isTeamBattle?: boolean; teams?: Array<{ id: string; name: string; color: string }> }) =>
       setParticipants(p.participants),
     );
     socket.on('question:start', (q: QuestionStartPayload) => {
@@ -56,15 +58,14 @@ export function TeacherLivePage() {
       setQuestionEnd(e);
       setStage('between');
     });
-    socket.on('leaderboard:update', (lb: { rankings: LeaderboardRow[] }) => setLeaderboard(lb.rankings));
+    socket.on('leaderboard:update', (lb: { rankings: LeaderboardRow[]; teamLeaderboard?: Array<{ teamId: string; teamName: string; color: string; score: number; members: number }> }) => {
+      setLeaderboard(lb.rankings);
+      if ((lb as any).teamLeaderboard) setTeamLeaderboard((lb as any).teamLeaderboard);
+    });
     socket.on('quiz:complete', (c: { quizId: string }) => {
       setCompletedQuizId(c.quizId);
       setStage('complete');
     });
-
-    if (token && quizId) {
-      socket.emit('host:start', { token, quizId });
-    }
 
     return () => {
       socket.off('error', onError);
@@ -114,8 +115,31 @@ export function TeacherLivePage() {
       )}
 
       {stage === 'starting' && (
-        <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
-          <Spinner className="h-6 w-6" /> Starting live session…
+        <div className="animate-scale-in card-surface p-8">
+          <h2 className="font-display text-2xl font-bold text-white flex items-center gap-2">👥 Team Battle</h2>
+          <p className="mt-1 text-sm text-slate-400">Choose mode before creating the lobby. Individual = classic, Team Battle = 4 teams.</p>
+          <div className="mt-6 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-4">
+            <input id="team-toggle" type="checkbox" checked={setupTeamBattle} onChange={(e) => setSetupTeamBattle(e.target.checked)} className="h-5 w-5 rounded border-white/20 bg-transparent accent-violet-600" />
+            <label htmlFor="team-toggle" className="flex-1 cursor-pointer">
+              <div className="font-semibold text-white">Enable Team Battle</div>
+              <div className="text-xs text-slate-400">Teams: Team A · Team B · Team C · Team D — students pick a team on join. Scores aggregate per team.</div>
+            </label>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {['Team A','Team B','Team C','Team D'].map((t,i)=> (
+              <div key={t} className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-center text-sm font-semibold text-white" style={{borderLeftColor:['#ef4444','#3b82f6','#10b981','#f59e0b'][i], borderLeftWidth:4}}>{t}</div>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              setError(null);
+              if (token && quizId) socketRef.current?.emit('host:start', { token, quizId, isTeamBattle: setupTeamBattle });
+            }}
+            className="btn-primary mt-6 w-full !py-3"
+          >
+            <IconPlay className="h-5 w-5" /> Create lobby {setupTeamBattle ? '— Team Battle' : '— Individual'}
+          </button>
+          <p className="mt-2 text-center text-xs text-slate-500">Max 50 players per quiz</p>
         </div>
       )}
 
@@ -132,17 +156,37 @@ export function TeacherLivePage() {
               <span className="font-bold text-slate-100">{participants.length}/50</span> player(s) joined
             </span>
           </div>
-          <div className="mt-3 flex max-h-28 flex-wrap justify-center gap-2 overflow-y-auto">
-            {participants.map((p, i) => (
-              <span
-                key={p.studentId}
-                className="animate-fade-in rounded-full border border-white/[0.08] bg-surface-900/60/[0.06] px-3 py-1 text-xs text-slate-300"
-                style={{ animationDelay: `${i * 25}ms` }}
-              >
-                {p.name}
-              </span>
-            ))}
-          </div>
+          {setupTeamBattle ? (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {(['A','B','C','D'] as const).map((tid, idx) => {
+                const teamName = `Team ${tid}`;
+                const color = ['#ef4444','#3b82f6','#10b981','#f59e0b'][idx];
+                const members = participants.filter((p) => p.teamId === tid);
+                return (
+                  <div key={tid} className="rounded-xl border bg-white/[0.04] p-3 text-left" style={{ borderColor: `${color}40` }}>
+                    <div className="flex items-center gap-2 font-bold" style={{ color }}>{teamName} <span className="text-xs font-normal text-slate-400">({members.length})</span></div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {members.length === 0 ? <span className="text-xs text-slate-500">No players yet</span> : members.map((p) => (
+                        <span key={p.studentId} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-xs text-slate-300">{p.name}</span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-3 flex max-h-28 flex-wrap justify-center gap-2 overflow-y-auto">
+              {participants.map((p, i) => (
+                <span
+                  key={p.studentId}
+                  className="animate-fade-in rounded-full border border-white/[0.08] bg-surface-900/60/[0.06] px-3 py-1 text-xs text-slate-300"
+                  style={{ animationDelay: `${i * 25}ms` }}
+                >
+                  {p.name}
+                </span>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => startQuestion(0)}
             disabled={participants.length === 0}
@@ -240,7 +284,7 @@ export function TeacherLivePage() {
                 }`}
               >
                 <span className="font-bold">
-                  <span className="text-slate-500">#{r.rank}</span> {r.name}
+                  <span className="text-slate-500">#{r.rank}</span> {r.name} {(r as any).teamName ? <span className="ml-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-xs">{(r as any).teamName}</span> : null}
                 </span>
                 <span>
                   {r.score} pts · {r.correct} correct
@@ -248,6 +292,20 @@ export function TeacherLivePage() {
               </div>
             ))}
           </div>
+
+          {setupTeamBattle && teamLeaderboard.length > 0 && (
+            <div className="mt-6">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-300">👥 Team Standings</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {teamLeaderboard.map((t) => (
+                  <div key={t.teamId} className="flex items-center justify-between rounded-xl border bg-white/[0.04] px-4 py-2.5" style={{ borderColor: `${t.color}40` }}>
+                    <span className="font-bold" style={{ color: t.color }}>{t.teamName} <span className="text-xs font-normal text-slate-400">({t.members} players)</span></span>
+                    <span className="font-bold text-white">{t.score} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             {questionEnd.index + 1 < total ? (

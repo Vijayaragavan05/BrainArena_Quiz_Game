@@ -22,6 +22,8 @@ interface GameParticipant {
   totalResponseTimeMs: number;
   answeredCount: number;
   sockets: Set<string>;
+  teamId?: string;
+  teamName?: string;
 }
 
 interface Game {
@@ -31,6 +33,8 @@ interface Game {
   teacherSocketId: string;
   pin: string;
   status: 'lobby' | 'live' | 'finished';
+  isTeamBattle: boolean;
+  teams: Array<{ id: string; name: string; color: string }>;
   questions: LiveQuestionMeta[];
   currentIndex: number;
   questionStartedAt: number;
@@ -69,8 +73,25 @@ function broadcastLeaderboard(io: Server, game: Game): void {
       unanswered: p.unanswered,
       accuracy: p.answeredCount > 0 ? Math.round((p.correct / p.answeredCount) * 100) / 100 : 0,
       avgResponseTimeMs: p.answeredCount > 0 ? Math.round(p.totalResponseTimeMs / p.answeredCount) : 0,
+      teamId: p.teamId,
+      teamName: p.teamName,
     }));
-  io.to(roomFor(game.pin)).emit('leaderboard:update', { rankings });
+  // Team aggregates for Team Battle
+  let teamLeaderboard: Array<{ teamId: string; teamName: string; color: string; score: number; members: number; correct: number }> | undefined;
+  if (game.isTeamBattle) {
+    const map = new Map<string, { teamId: string; teamName: string; color: string; score: number; members: number; correct: number }>();
+    for (const t of game.teams) map.set(t.id, { teamId: t.id, teamName: t.name, color: t.color, score: 0, members: 0, correct: 0 });
+    for (const p of game.participants.values()) {
+      if (!p.teamId) continue;
+      const agg = map.get(p.teamId);
+      if (!agg) continue;
+      agg.score += p.score;
+      agg.members += 1;
+      agg.correct += p.correct;
+    }
+    teamLeaderboard = [...map.values()].sort((a, b) => b.score - a.score);
+  }
+  io.to(roomFor(game.pin)).emit('leaderboard:update', { rankings, teamLeaderboard, isTeamBattle: game.isTeamBattle });
 }
 
 function endQuestion(io: Server, game: Game, timeUp: boolean): void {
@@ -130,7 +151,7 @@ async function finalize(io: Server, game: Game): Promise<void> {
 
 export function setupQuizSockets(io: Server): void {
   io.on('connection', (socket: Socket) => {
-    socket.on('host:start', async (payload: { token: string; quizId: string }) => {
+    socket.on('host:start', async (payload: { token: string; quizId: string; isTeamBattle?: boolean }) => {
       try {
         const user = await authenticate(payload.token);
         if (user.role !== 'teacher') {
@@ -145,7 +166,7 @@ export function setupQuizSockets(io: Server): void {
           return socket.emit('error', { message: 'This quiz has no questions yet' });
         }
 
-        const session = await createSession(String(user._id), payload.quizId);
+        const session = await createSession(String(user._id), payload.quizId, { isTeamBattle: Boolean(payload.isTeamBattle) });
         const populatedQuiz = quiz as unknown as PopulatedQuiz;
         const questions: LiveQuestionMeta[] = populatedQuiz.questions.map((q, index) => ({
           _id: String(q._id),
@@ -165,6 +186,8 @@ export function setupQuizSockets(io: Server): void {
           teacherSocketId: socket.id,
           pin: session.pin,
           status: 'lobby',
+          isTeamBattle: Boolean((session as any).isTeamBattle),
+          teams: ((session as any).teams as Array<{ id: string; name: string; color: string }>) || [],
           questions,
           currentIndex: 0,
           questionStartedAt: 0,
@@ -182,6 +205,8 @@ export function setupQuizSockets(io: Server): void {
           quizTitle: quiz.title,
           totalQuestions: game.questions.length,
           durationMs: game.durationMs,
+          isTeamBattle: game.isTeamBattle,
+          teams: game.teams,
         });
       } catch (err) {
         socket.emit('error', { message: (err as Error).message });
@@ -241,7 +266,7 @@ export function setupQuizSockets(io: Server): void {
       GAMES.delete(game.pin);
     });
 
-    socket.on('student:join', async (payload: { token: string; pin: string }) => {
+    socket.on('student:join', async (payload: { token: string; pin: string; teamId?: string }) => {
       try {
         const user = await authenticate(payload.token);
         if (user.role !== 'student') {
@@ -266,9 +291,19 @@ export function setupQuizSockets(io: Server): void {
           return socket.emit('error', { message: `This quiz is full (${MAX_PARTICIPANTS_PER_QUIZ} players max)` });
         }
 
+        let teamId: string | undefined;
+        let teamName: string | undefined;
+        if (game.isTeamBattle) {
+          if (!payload.teamId) return socket.emit('error', { message: 'Please select a team (Team A/B/C/D)' });
+          const t = game.teams.find((x) => x.id === payload.teamId);
+          if (!t) return socket.emit('error', { message: 'Invalid team' });
+          teamId = t.id;
+          teamName = t.name;
+        }
+
         const participant = await Participant.findOneAndUpdate(
           { session: session._id, student: user._id },
-          { $set: { name: user.name, disconnected: false }, $setOnInsert: { joinedAt: new Date() } },
+          { $set: { name: user.name, disconnected: false, teamId, teamName }, $setOnInsert: { joinedAt: new Date() } },
           { upsert: true, returnDocument: 'after' },
         );
 
@@ -284,8 +319,14 @@ export function setupQuizSockets(io: Server): void {
             totalResponseTimeMs: 0,
             answeredCount: 0,
             sockets: new Set(),
+            teamId,
+            teamName,
           };
           game.participants.set(gp.studentId, gp);
+        } else {
+          // update team if changed
+          (gp as any).teamId = teamId;
+          (gp as any).teamName = teamName;
         }
         gp.sockets.add(socket.id);
 
@@ -294,13 +335,19 @@ export function setupQuizSockets(io: Server): void {
           sessionId: session._id.toString(),
           pin: game.pin,
           participantId: String(participant._id),
+          teamId,
+          teamName,
         });
 
         io.to(roomFor(game.pin)).emit('lobby:update', {
           participants: [...game.participants.values()].map((p) => ({
             studentId: p.studentId,
             name: p.name,
+            teamId: p.teamId,
+            teamName: p.teamName,
           })),
+          isTeamBattle: game.isTeamBattle,
+          teams: game.teams,
         });
       } catch (err) {
         socket.emit('error', { message: (err as Error).message });
