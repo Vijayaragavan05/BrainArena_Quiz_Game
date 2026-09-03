@@ -43,6 +43,11 @@ export function StudentLivePage() {
   const [teamPick, setTeamPick] = useState<{ isTeamBattle: boolean; teams: Array<{ id: string; name: string; color: string }> } | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [teamLeaderboard, setTeamLeaderboard] = useState<Array<{ teamId: string; teamName: string; color: string; score: number; members: number }>>([]);
+  const [warnings, setWarnings] = useState(0);
+  const [showWarning, setShowWarning] = useState<string | null>(null);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const warningsRef = useRef(0);
+  const lastWarningAt = useRef(0);
 
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
 
@@ -141,6 +146,78 @@ export function StudentLivePage() {
     );
     setMyRank(row ?? null);
   }, [leaderboard]);
+
+  // Fullscreen + anti-cheat: enter fullscreen on quiz start, warn on tab/fullscreen exit, auto-submit after 3
+  useEffect(() => {
+    const isLive = stage === 'question' || stage === 'between' || stage === 'lobby';
+    if (stage === 'question' && !autoSubmitted) {
+      const el: any = document.documentElement;
+      const req = el.requestFullscreen?.bind(el) || (el as any).webkitRequestFullscreen?.bind(el);
+      if (req && !document.fullscreenElement) {
+        req().catch(() => {
+          setShowWarning('Fullscreen blocked — please allow fullscreen for the quiz.');
+          setTimeout(() => setShowWarning(null), 3000);
+        });
+      }
+    }
+
+    if (!isLive || autoSubmitted) return;
+
+    const triggerWarning = (reason: string) => {
+      const now = Date.now();
+      if (now - lastWarningAt.current < 1500) return;
+      lastWarningAt.current = now;
+      const next = warningsRef.current + 1;
+      warningsRef.current = next;
+      setWarnings(next);
+      if (next >= 3) {
+        setAutoSubmitted(true);
+        setShowWarning('3 warnings — quiz auto-submitted.');
+        // auto-submit current answer if any, then finish
+        if (!submitted && selected !== null && question) {
+          socketRef.current?.emit('student:answer', {
+            questionIndex: question.index,
+            selectedIndex: selected,
+            initialIndex,
+            answerChanges: changes,
+          });
+        }
+        setTimeout(() => {
+          setStage('complete');
+          setError('Quiz auto-submitted after 3 tab/fullscreen exits.');
+          try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
+        }, 1500);
+      } else {
+        setShowWarning(`Warning ${next}/3: ${reason} — stay in fullscreen/tab. ${3 - next} left before auto-submit.`);
+        // try to re-enter fullscreen
+        const el: any = document.documentElement;
+        const req = el.requestFullscreen?.bind(el);
+        if (req && !document.fullscreenElement) req().catch(() => {});
+        setTimeout(() => setShowWarning(null), 3500);
+      }
+    };
+
+    const onFsChange = () => {
+      if (!document.fullscreenElement && isLive && !autoSubmitted) {
+        triggerWarning('Exited fullscreen');
+      }
+    };
+    const onVis = () => {
+      if (document.hidden && isLive && !autoSubmitted) triggerWarning('Left the quiz tab');
+    };
+    const onBlur = () => {
+      if (isLive && !autoSubmitted && !document.hidden) triggerWarning('Switched window/tab');
+    };
+
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [stage, autoSubmitted, submitted, selected, question, initialIndex, changes]);
 
   const myId = JSON.parse(localStorage.getItem('brainarena_user') ?? '{}')._id as string;
 
@@ -288,6 +365,9 @@ export function StudentLivePage() {
           <Logo to="/student" size="sm" />
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            {warnings > 0 && !autoSubmitted && (
+              <span className={`rounded-full px-2 py-1 text-xs font-bold ${warnings >= 2 ? 'bg-red-500 text-white' : 'bg-amber-500 text-amber-950'}`}>⚠ {warnings}/3</span>
+            )}
             <span className="rounded-full border border-white/[0.08] bg-surface-900/60 px-3 py-1 font-mono text-sm font-bold tracking-widest text-slate-300">
               {pin}
             </span>
@@ -299,6 +379,12 @@ export function StudentLivePage() {
           </div>
         </div>
       </header>
+
+      {showWarning && (
+        <div className="fixed inset-x-0 top-16 z-50 flex justify-center px-4">
+          <div className={`animate-fade-in rounded-xl border px-4 py-2.5 text-sm font-bold shadow-lg ${autoSubmitted ? 'border-red-500 bg-red-500 text-white' : 'border-amber-500 bg-amber-500 text-amber-950'}`}>{showWarning}</div>
+        </div>
+      )}
 
       {stage === 'lobby' && (
         <Centered>
