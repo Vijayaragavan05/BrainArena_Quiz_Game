@@ -20,16 +20,16 @@ const OPTION_COLORS = [
   'from-cyan-500/20 to-cyan-600/10 border-cyan-500/40 text-cyan-100',
 ];
 
-type Stage = 'guest-name' | 'joining' | 'team-pick' | 'lobby' | 'question' | 'between' | 'complete';
+type Stage = 'join' | 'buffering' | 'team-pick' | 'lobby' | 'question' | 'between' | 'complete';
 
 export function StudentLivePage() {
   const { token } = useAuth();
   const navigate = useNavigate();
-  const pin = new URLSearchParams(window.location.search).get('pin') ?? '';
+  const [pinInput, setPinInput] = useState(new URLSearchParams(window.location.search).get('pin') ?? '');
 
   const [stage, setStage] = useState<Stage>(() => {
     const stored = localStorage.getItem('brainarena_user');
-    return stored ? 'joining' : 'guest-name';
+    return stored ? 'buffering' : 'join';
   });
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Array<{ studentId: string; name: string }>>([]);
@@ -105,28 +105,28 @@ export function StudentLivePage() {
     });
 
     if (token) {
-      if (!pin) return;
+      if (!pinInput) return;
       // Fetch session info to know if Team Battle
       import('../services/api').then(({ api }) =>
         api
-          .get(`/sessions/lookup/${pin}`)
+          .get(`/sessions/lookup/${pinInput}`)
           .then((res) => {
             const info = (res.data as any).session;
             if (info?.isTeamBattle) {
               setTeamPick({ isTeamBattle: true, teams: info.teams });
               setStage('team-pick');
             } else {
-              socket.emit('student:join', { token, pin });
+              socket.emit('student:join', { token, pin: pinInput });
             }
           })
           .catch(() => {
             // fallback: try join directly (server will error if team required)
-            socket.emit('student:join', { token, pin });
+            socket.emit('student:join', { token, pin: pinInput });
           }),
       );
-    } else if (pin) {
+    } else if (pinInput) {
       // Guest mode - user has already entered their name on the page
-      socket.emit("student:join", { pin, name: localStorage.getItem("brainarena_guest_name") ?? "Guest" });
+      socket.emit("student:join", { pin: pinInput, name: localStorage.getItem("brainarena_guest_name") ?? "Guest" });
     }
 
     return () => {
@@ -139,7 +139,7 @@ export function StudentLivePage() {
       socket.off('leaderboard:update');
       socket.off('quiz:complete');
     };
-  }, [token, pin, guestName]);
+  }, [token, pinInput, guestName]);
 
   useEffect(() => {
     if (stage !== 'question' || !question) return;
@@ -259,16 +259,17 @@ export function StudentLivePage() {
   const { login } = useAuth();
   const joinAsGuest = async () => {
     const name = guestName.trim();
-    if (name.length < 2) return;
+    const p = pinInput.trim();
+    if (name.length < 2 || p.length < 1) return;
     try {
       const res = await guestLogin(name);
       login(res.token, res.user);
       localStorage.setItem('brainarena_guest_name', name);
     } catch {}
-    setStage('joining');
+    setStage('buffering');
   };
 
-  if (stage === 'guest-name') {
+  if (stage === 'join') {
     return (
       <Centered>
         <div className="animate-scale-in card-surface w-full max-w-md p-8 text-center">
@@ -276,20 +277,27 @@ export function StudentLivePage() {
             <span className="font-display text-2xl font-bold">🎮</span>
           </div>
           <h1 className="mt-5 font-display text-3xl font-bold">Play as Guest</h1>
-          <p className="mt-2 text-sm text-slate-400">Enter your name to join the quiz without an account.</p>
+          <p className="mt-2 text-sm text-slate-400">Enter your name and the game PIN to join without an account.</p>
           <input
             type="text"
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && guestName.trim().length >= 2) joinAsGuest(); }}
             placeholder="Your name…"
             maxLength={100}
             className="mt-4 w-full rounded-xl border border-white/[0.08] bg-surface-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30"
             autoFocus
           />
+           <input
+            type="text"
+            value={pinInput}
+            onChange={(e) => setPinInput(e.target.value.toUpperCase())}
+            placeholder="Game PIN…"
+            maxLength={6}
+            className="mt-3 w-full rounded-xl border border-white/[0.08] bg-surface-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 font-mono tracking-widest"
+          />
           <button
             onClick={joinAsGuest}
-            disabled={guestName.trim().length < 2}
+            disabled={guestName.trim().length < 2 || pinInput.trim().length < 1}
             className="btn-primary mt-6 w-full !py-3 disabled:opacity-40"
           >
             Join Quiz
@@ -300,11 +308,19 @@ export function StudentLivePage() {
     );
   }
 
-  if (stage === 'joining') {
+  if (stage === 'buffering') {
     return (
       <Centered>
-        <Spinner className="h-8 w-8" />
-        <p className="mt-4 text-slate-400">Joining quiz {pin}…</p>
+        <div className="animate-scale-in card-surface w-full max-w-md p-8 text-center">
+          <Spinner className="h-10 w-10" />
+          <p className="mt-4 text-lg font-semibold text-white">Connecting…</p>
+           <p className="mt-1 text-sm text-slate-400">Joining quiz {pinInput}…</p>
+          <div className="mt-4 flex justify-center">
+            <div className="h-1 w-48 overflow-hidden rounded-full bg-white/[0.08]">
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-violet-500" />
+            </div>
+          </div>
+        </div>
       </Centered>
     );
   }
@@ -335,8 +351,8 @@ export function StudentLivePage() {
           <button
             onClick={() => {
               if (!selectedTeam || !token) return;
-              socketRef.current?.emit('student:join', { token, pin, teamId: selectedTeam });
-              setStage('joining');
+               socketRef.current?.emit('student:join', { token, pin: pinInput, teamId: selectedTeam });
+               setStage('buffering');
             }}
             disabled={!selectedTeam}
             className="btn-primary mt-6 w-full !py-3 disabled:opacity-40"
@@ -426,7 +442,7 @@ export function StudentLivePage() {
               <span className={`rounded-full px-2 py-1 text-xs font-bold ${warnings >= 2 ? 'bg-red-500 text-white' : 'bg-amber-500 text-amber-950'}`}>⚠ {warnings}/3</span>
             )}
             <span className="rounded-full border border-white/[0.08] bg-surface-900/60 px-3 py-1 font-mono text-sm font-bold tracking-widest text-slate-300">
-              {pin}
+              {pinInput}
             </span>
             {totalScore > 0 && (
               <Badge tone="brand" className="!px-3 !py-1 !text-sm !font-bold">

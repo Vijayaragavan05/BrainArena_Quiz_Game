@@ -310,11 +310,13 @@ export function setupQuizSockets(io: Server): void {
           teamName = t.name;
         }
 
-        const participant = await Participant.findOneAndUpdate(
-          { session: session._id, student: user._id },
-          { $set: { name: user.name, disconnected: false, teamId, teamName }, $setOnInsert: { joinedAt: new Date() } },
-          { upsert: true, returnDocument: 'after' },
-        );
+        if (!isGuest) {
+          const participant = await Participant.findOneAndUpdate(
+            { session: session._id, student: user._id },
+            { $set: { name: user.name, disconnected: false, teamId, teamName }, $setOnInsert: { joinedAt: new Date() } },
+            { upsert: true, returnDocument: 'after' },
+          );
+        }
 
         let gp = game.participants.get(user._id);
         if (!gp) {
@@ -342,7 +344,6 @@ export function setupQuizSockets(io: Server): void {
         socket.emit('student:joined', {
           sessionId: session._id.toString(),
           pin: game.pin,
-          participantId: String(participant._id),
           teamId,
           teamName,
         });
