@@ -27,14 +27,10 @@ export function StudentLivePage() {
   const navigate = useNavigate();
   const pin = new URLSearchParams(window.location.search).get('pin') ?? '';
 
-  const [stage, setStage] = useState<Stage>('joining');
-
-  // If no token, start at guest-name stage
-  useEffect(() => {
-    if (!token && stage === 'joining') {
-      setStage('guest-name');
-    }
-  }, [token, stage]);
+  const [stage, setStage] = useState<Stage>(() => {
+    const stored = localStorage.getItem('brainarena_user');
+    return stored ? 'joining' : 'guest-name';
+  });
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Array<{ studentId: string; name: string }>>([]);
   const [question, setQuestion] = useState<QuestionStartPayload | null>(null);
@@ -109,6 +105,7 @@ export function StudentLivePage() {
     });
 
     if (token) {
+      if (!pin) return;
       // Fetch session info to know if Team Battle
       import('../services/api').then(({ api }) =>
         api
@@ -127,7 +124,7 @@ export function StudentLivePage() {
             socket.emit('student:join', { token, pin });
           }),
       );
-    } else {
+    } else if (pin) {
       // Guest mode - user has already entered their name on the page
       socket.emit("student:join", { pin, name: localStorage.getItem("brainarena_guest_name") ?? "Guest" });
     }

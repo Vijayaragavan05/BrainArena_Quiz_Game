@@ -92,7 +92,7 @@ export function HomePage() {
           </p>
 
           <div className="animate-fade-up mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link to="/student/join" className="btn-primary !px-8 !py-3.5 !text-base">
+            <Link to="/join" className="btn-primary !px-8 !py-3.5 !text-base">
               🎮 Play as Guest
             </Link>
             <Link to="/login" className="btn-secondary !px-8 !py-3.5 !text-base">
@@ -157,7 +157,7 @@ export function HomePage() {
               <h2 className="font-display text-3xl font-bold text-white">Ready to enter the arena?</h2>
               <p className="mt-2 max-w-xl text-slate-400">Join thousands of players turning every quiz into a chance to level up.</p>
             </div>
-            <Link to="/student/join" className="btn-primary shrink-0 !px-8 !py-3.5 !text-base">
+            <Link to="/join" className="btn-primary shrink-0 !px-8 !py-3.5 !text-base">
               Play Now →
             </Link>
           </div>
