@@ -23,7 +23,6 @@ const OPTION_COLORS = [
 type Stage = 'join' | 'buffering' | 'team-pick' | 'lobby' | 'question' | 'between' | 'complete';
 
 export function StudentLivePage() {
-  const { token } = useAuth();
   const navigate = useNavigate();
   const [pinInput, setPinInput] = useState(new URLSearchParams(window.location.search).get('pin') ?? '');
 
@@ -31,6 +30,12 @@ export function StudentLivePage() {
     const stored = localStorage.getItem('brainarena_user');
     return stored ? 'buffering' : 'join';
   });
+
+  // Reset hasJoined when PIN changes
+  const handlePinChange = (v: string) => {
+    setPinInput(v.toUpperCase());
+    setHasJoined(false);
+  };
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Array<{ studentId: string; name: string }>>([]);
   const [question, setQuestion] = useState<QuestionStartPayload | null>(null);
@@ -53,6 +58,8 @@ export function StudentLivePage() {
   const warningsRef = useRef(0);
   const lastWarningAt = useRef(0);
   const [guestName, setGuestName] = useState(localStorage.getItem('brainarena_guest_name') ?? '');
+  const [hasJoined, setHasJoined] = useState(false);
+  const { token, login } = useAuth();
 
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
 
@@ -105,7 +112,7 @@ export function StudentLivePage() {
     });
 
     if (token) {
-      if (!pinInput) return;
+      if (!hasJoined || !pinInput) return;
       // Fetch session info to know if Team Battle
       import('../services/api').then(({ api }) =>
         api
@@ -124,8 +131,8 @@ export function StudentLivePage() {
             socket.emit('student:join', { token, pin: pinInput });
           }),
       );
-    } else if (pinInput) {
-      // Guest mode - user has already entered their name on the page
+    } else if (hasJoined && pinInput) {
+      // Guest mode - user explicitly clicked Join
       socket.emit("student:join", { pin: pinInput, name: localStorage.getItem("brainarena_guest_name") ?? "Guest" });
     }
 
@@ -139,7 +146,7 @@ export function StudentLivePage() {
       socket.off('leaderboard:update');
       socket.off('quiz:complete');
     };
-  }, [token, pinInput, guestName]);
+  }, [token, pinInput, guestName, hasJoined]);
 
   useEffect(() => {
     if (stage !== 'question' || !question) return;
@@ -256,7 +263,6 @@ export function StudentLivePage() {
     });
   };
 
-  const { login } = useAuth();
   const joinAsGuest = async () => {
     const name = guestName.trim();
     const p = pinInput.trim();
@@ -266,6 +272,7 @@ export function StudentLivePage() {
       login(res.token, res.user);
       localStorage.setItem('brainarena_guest_name', name);
     } catch {}
+    setHasJoined(true);
     setStage('buffering');
   };
 
@@ -290,7 +297,7 @@ export function StudentLivePage() {
            <input
             type="text"
             value={pinInput}
-            onChange={(e) => setPinInput(e.target.value.toUpperCase())}
+            onChange={(e) => handlePinChange(e.target.value)}
             placeholder="Game PIN…"
             maxLength={6}
             className="mt-3 w-full rounded-xl border border-white/[0.08] bg-surface-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 font-mono tracking-widest"
@@ -355,12 +362,13 @@ export function StudentLivePage() {
               </button>
             ))}
           </div>
-          <button
+           <button
             onClick={() => {
               if (!selectedTeam || !token) return;
+              setHasJoined(true);
                socketRef.current?.emit('student:join', { token, pin: pinInput, teamId: selectedTeam });
-               setStage('buffering');
-            }}
+              setStage('buffering');
+             }}
             disabled={!selectedTeam}
             className="btn-primary mt-6 w-full !py-3 disabled:opacity-40"
           >
