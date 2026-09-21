@@ -312,14 +312,21 @@ export function StudentLivePage() {
     return (
       <Centered>
         <div className="animate-scale-in card-surface w-full max-w-md p-8 text-center">
-          <Spinner className="h-10 w-10" />
-          <p className="mt-4 text-lg font-semibold text-white">Connecting…</p>
-           <p className="mt-1 text-sm text-slate-400">Joining quiz {pinInput}…</p>
-          <div className="mt-4 flex justify-center">
-            <div className="h-1 w-48 overflow-hidden rounded-full bg-white/[0.08]">
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-violet-500" />
-            </div>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-indigo-600/25">
+            <Spinner className="h-8 w-8 text-violet-400" />
           </div>
+          <p className="mt-5 text-lg font-display font-bold text-white">Connecting…</p>
+          <p className="mt-1 text-sm text-slate-400">Waiting for game {pinInput}…</p>
+          <div className="mt-5 flex items-center justify-center gap-1">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="inline-block h-2 w-2 animate-bounce rounded-full bg-violet-400"
+                style={{ animationDelay: `${i * 150}ms`, animationDuration: '0.6s' }}
+              />
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-slate-500">Make sure you have the correct game PIN</p>
         </div>
       </Centered>
     );
