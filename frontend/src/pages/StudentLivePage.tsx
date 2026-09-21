@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../services/socket';
 import { guestLogin } from '../services/auth';
@@ -57,7 +57,7 @@ export function StudentLivePage() {
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const warningsRef = useRef(0);
   const lastWarningAt = useRef(0);
-  const [guestName, setGuestName] = useState(localStorage.getItem('brainarena_guest_name') ?? '');
+  const [guestName, setGuestName] = useState(localStorage.getItem('brainarena_guest_name') ?? 'Guest_user');
   const [hasJoined, setHasJoined] = useState(false);
   const { token, login } = useAuth();
 
@@ -280,6 +280,9 @@ export function StudentLivePage() {
     return (
       <Centered>
         <div className="animate-scale-in card-surface w-full max-w-md p-8 text-center">
+          <Link to="/" className="btn-ghost mb-4 inline-flex items-center gap-1.5 text-sm">
+            ← Back to Home
+          </Link>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-indigo-600/25 text-violet-300">
             <span className="font-display text-2xl font-bold">🎮</span>
           </div>

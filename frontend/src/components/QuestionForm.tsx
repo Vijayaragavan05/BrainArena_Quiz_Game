@@ -82,7 +82,7 @@ export function QuestionForm({ initial, onSubmit, onCancel }: QuestionFormProps)
 
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-300">
-          Media — Image URL <span className="font-normal text-slate-500">(Kahoot-style: shown to players)</span>
+           Media — Image URL <span className="font-normal text-slate-500">(shown to players)</span>
         </label>
         <div className="flex gap-2">
           <input

@@ -87,8 +87,7 @@ export function HomePage() {
             Enter the <span className="text-gradient">Arena</span>.
           </h1>
           <p className="animate-fade-up mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-slate-400 md:text-xl">
-            Kahoot made quizzes fun. <span className="font-semibold text-white">BrainArena</span> makes them
-            powerful — live battles, media-rich questions, and analytics that show <em className="text-violet-300 not-italic">why</em> you scored the way you did.
+            BrainArena makes quizzes fun. <span className="font-semibold text-white">BrainArena</span> makes them powerful — live battles, media-rich questions, and analytics that show <em className="text-violet-300 not-italic">why</em> you scored the way you did.
           </p>
 
           <div className="animate-fade-up mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -107,7 +106,7 @@ export function HomePage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-violet-600 font-display font-extrabold">Q</div>
                 <div>
                   <div className="text-sm font-bold text-white">Live question — with image</div>
-                  <div className="text-xs text-slate-300">Kahoot-style media + 4 neon answer tiles</div>
+                   <div className="text-xs text-slate-300">Live quiz + 4 neon answer tiles</div>
                 </div>
                 <span className="ml-auto rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white">12s</span>
               </div>
