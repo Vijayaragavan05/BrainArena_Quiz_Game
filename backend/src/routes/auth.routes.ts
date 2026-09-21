@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { User } from '../models/User.js';
-import { signToken } from '../utils/jwt.js';
+import { signToken, signGuestToken } from '../utils/jwt.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AppError } from '../middleware/error.js';
@@ -89,6 +89,22 @@ router.post('/login', validate(loginSchema), async (req: Request, res: Response)
 
 router.get('/me', requireAuth, (req: Request, res: Response) => {
   res.json({ user: req.user });
+});
+
+router.post('/guest', (req: Request, res: Response) => {
+  const { name } = req.body as { name?: string };
+  const userName = (typeof name === 'string' && name.trim().length >= 2) ? name.trim().slice(0, 100) : 'Guest';
+  const token = signGuestToken(userName);
+  res.status(201).json({
+    token,
+    user: {
+      _id: token.split('.')[0],
+      name: userName,
+      email: '',
+      role: 'student',
+      status: 'approved',
+    },
+  });
 });
 
 export default router;

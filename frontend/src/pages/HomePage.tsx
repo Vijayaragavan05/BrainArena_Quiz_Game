@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { api } from '../services/api';
 import type { ApiHealth } from '../types';
 import { Logo } from '../components/ui/Logo';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { IconBolt, IconChart, IconTrophy, IconUsers } from '../components/ui/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
 
 const FEATURES = [
   {
@@ -93,8 +92,8 @@ export function HomePage() {
           </p>
 
           <div className="animate-fade-up mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link to="/register" className="btn-primary !px-8 !py-3.5 !text-base">
-              Create your free account
+            <Link to="/student/join" className="btn-primary !px-8 !py-3.5 !text-base">
+              🎮 Play as Guest
             </Link>
             <Link to="/login" className="btn-secondary !px-8 !py-3.5 !text-base">
               I already have an account
@@ -158,8 +157,8 @@ export function HomePage() {
               <h2 className="font-display text-3xl font-bold text-white">Ready to enter the arena?</h2>
               <p className="mt-2 max-w-xl text-slate-400">Join thousands of players turning every quiz into a chance to level up.</p>
             </div>
-            <Link to="/register" className="btn-primary shrink-0 !px-8 !py-3.5 !text-base">
-              Start playing →
+            <Link to="/student/join" className="btn-primary shrink-0 !px-8 !py-3.5 !text-base">
+              Play Now →
             </Link>
           </div>
         </section>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../services/socket';
+import { guestLogin } from '../services/auth';
 import type { QuestionStartPayload, QuestionEndPayload, LeaderboardRow } from '../types/socket';
 import { Logo } from '../components/ui/Logo';
 import { Badge } from '../components/ui/Badge';
@@ -19,7 +20,7 @@ const OPTION_COLORS = [
   'from-cyan-500/20 to-cyan-600/10 border-cyan-500/40 text-cyan-100',
 ];
 
-type Stage = 'joining' | 'team-pick' | 'lobby' | 'question' | 'between' | 'complete';
+type Stage = 'guest-name' | 'joining' | 'team-pick' | 'lobby' | 'question' | 'between' | 'complete';
 
 export function StudentLivePage() {
   const { token } = useAuth();
@@ -27,6 +28,13 @@ export function StudentLivePage() {
   const pin = new URLSearchParams(window.location.search).get('pin') ?? '';
 
   const [stage, setStage] = useState<Stage>('joining');
+
+  // If no token, start at guest-name stage
+  useEffect(() => {
+    if (!token && stage === 'joining') {
+      setStage('guest-name');
+    }
+  }, [token, stage]);
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Array<{ studentId: string; name: string }>>([]);
   const [question, setQuestion] = useState<QuestionStartPayload | null>(null);
@@ -48,6 +56,7 @@ export function StudentLivePage() {
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const warningsRef = useRef(0);
   const lastWarningAt = useRef(0);
+  const [guestName, setGuestName] = useState(localStorage.getItem('brainarena_guest_name') ?? '');
 
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
 
@@ -63,9 +72,12 @@ export function StudentLivePage() {
 
     socket.on('error', onError);
     socket.on('student:joined', () => setStage('lobby'));
-    socket.on('lobby:update', (p: { participants: Array<{ studentId: string; name: string; teamId?: string; teamName?: string }> }) =>
-      setParticipants(p.participants as any),
-    );
+    socket.on('lobby:update', (p: { participants: Array<{ studentId: string; name: string; teamId?: string; teamName?: string }> }) => {
+      const part = p.participants as any;
+      const me = part.find((x: any) => x.name === guestName);
+      if (me) localStorage.setItem('brainarena_guest_name', guestName);
+      setParticipants(part);
+    });
 
     socket.on('question:start', (q: QuestionStartPayload) => {
       setQuestion(q);
@@ -115,6 +127,9 @@ export function StudentLivePage() {
             socket.emit('student:join', { token, pin });
           }),
       );
+    } else {
+      // Guest mode - user has already entered their name on the page
+      socket.emit("student:join", { pin, name: localStorage.getItem("brainarena_guest_name") ?? "Guest" });
     }
 
     return () => {
@@ -127,7 +142,7 @@ export function StudentLivePage() {
       socket.off('leaderboard:update');
       socket.off('quiz:complete');
     };
-  }, [token, pin]);
+  }, [token, pin, guestName]);
 
   useEffect(() => {
     if (stage !== 'question' || !question) return;
@@ -140,12 +155,15 @@ export function StudentLivePage() {
     return () => clearInterval(id);
   }, [stage, question]);
 
+  const storedUser = JSON.parse(localStorage.getItem('brainarena_user') ?? 'null');
+  const myId = (storedUser ? storedUser._id : null) ?? (guestName || 'guest');
+
   useEffect(() => {
     const row = leaderboard.find(
-      (r) => r.studentId === JSON.parse(localStorage.getItem('brainarena_user') ?? '{}')._id,
+      (r) => r.studentId === myId,
     );
     setMyRank(row ?? null);
-  }, [leaderboard]);
+  }, [leaderboard, myId]);
 
   // Fullscreen + anti-cheat: enter fullscreen on quiz start, warn on tab/fullscreen exit, auto-submit after 3
   useEffect(() => {
@@ -219,8 +237,6 @@ export function StudentLivePage() {
     };
   }, [stage, autoSubmitted, submitted, selected, question, initialIndex, changes]);
 
-  const myId = JSON.parse(localStorage.getItem('brainarena_user') ?? '{}')._id as string;
-
   const choose = (i: number) => {
     if (submitted) return;
     setSelected((prev) => {
@@ -242,6 +258,50 @@ export function StudentLivePage() {
       answerChanges: changes,
     });
   };
+
+  const { login } = useAuth();
+  const joinAsGuest = async () => {
+    const name = guestName.trim();
+    if (name.length < 2) return;
+    try {
+      const res = await guestLogin(name);
+      login(res.token, res.user);
+      localStorage.setItem('brainarena_guest_name', name);
+    } catch {}
+    setStage('joining');
+  };
+
+  if (stage === 'guest-name') {
+    return (
+      <Centered>
+        <div className="animate-scale-in card-surface w-full max-w-md p-8 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-indigo-600/25 text-violet-300">
+            <span className="font-display text-2xl font-bold">🎮</span>
+          </div>
+          <h1 className="mt-5 font-display text-3xl font-bold">Play as Guest</h1>
+          <p className="mt-2 text-sm text-slate-400">Enter your name to join the quiz without an account.</p>
+          <input
+            type="text"
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && guestName.trim().length >= 2) joinAsGuest(); }}
+            placeholder="Your name…"
+            maxLength={100}
+            className="mt-4 w-full rounded-xl border border-white/[0.08] bg-surface-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30"
+            autoFocus
+          />
+          <button
+            onClick={joinAsGuest}
+            disabled={guestName.trim().length < 2}
+            className="btn-primary mt-6 w-full !py-3 disabled:opacity-40"
+          >
+            Join Quiz
+          </button>
+          {error && <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+        </div>
+      </Centered>
+    );
+  }
 
   if (stage === 'joining') {
     return (

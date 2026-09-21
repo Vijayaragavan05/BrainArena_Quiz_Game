@@ -5,6 +5,7 @@ import { QuizSession } from '../models/QuizSession.js';
 import { Participant } from '../models/Participant.js';
 import { createSession } from '../services/session.service.js';
 import { verifyToken } from '../utils/jwt.js';
+import { Types } from 'mongoose';
 import { calculateQuestionScore } from '../services/scoring.service.js';
 import { finalizeQuiz, persistAnswer, type LiveAnswerInput, type LiveQuestionMeta } from '../services/analytics.service.js';
 import type { PopulatedQuiz } from '../types/populated.js';
@@ -266,11 +267,19 @@ export function setupQuizSockets(io: Server): void {
       GAMES.delete(game.pin);
     });
 
-    socket.on('student:join', async (payload: { token: string; pin: string; teamId?: string }) => {
+    socket.on('student:join', async (payload: { token?: string; pin: string; name?: string; teamId?: string }) => {
       try {
-        const user = await authenticate(payload.token);
-        if (user.role !== 'student') {
-          return socket.emit('error', { message: 'Only students can join quizzes' });
+        const isGuest = !payload.token && payload.name && payload.name.trim().length >= 2;
+        const guestName = typeof payload.name === 'string' ? payload.name.trim() : 'Guest';
+        let user: { _id: string; name: string; role: string };
+        if (isGuest) {
+          const guestId = new Types.ObjectId();
+          user = { _id: guestId.toString(), name: guestName, role: 'student' };
+        } else {
+          user = await authenticate(payload.token || '');
+          if (user.role !== 'student') {
+            return socket.emit('error', { message: 'Only students can join quizzes' });
+          }
         }
 
         const session = await QuizSession.findOne({ pin: payload.pin.trim().toUpperCase() });
@@ -286,7 +295,7 @@ export function setupQuizSockets(io: Server): void {
           return socket.emit('error', { message: 'This quiz session is not active' });
         }
 
-        const isNew = !game.participants.has(String(user._id));
+        const isNew = !game.participants.has(user._id);
         if (isNew && game.participants.size >= MAX_PARTICIPANTS_PER_QUIZ) {
           return socket.emit('error', { message: `This quiz is full (${MAX_PARTICIPANTS_PER_QUIZ} players max)` });
         }
@@ -307,10 +316,10 @@ export function setupQuizSockets(io: Server): void {
           { upsert: true, returnDocument: 'after' },
         );
 
-        let gp = game.participants.get(String(user._id));
+        let gp = game.participants.get(user._id);
         if (!gp) {
           gp = {
-            studentId: String(user._id),
+            studentId: user._id,
             name: user.name,
             score: 0,
             correct: 0,
@@ -324,7 +333,6 @@ export function setupQuizSockets(io: Server): void {
           };
           game.participants.set(gp.studentId, gp);
         } else {
-          // update team if changed
           (gp as any).teamId = teamId;
           (gp as any).teamName = teamName;
         }
@@ -478,11 +486,15 @@ export function setupQuizSockets(io: Server): void {
   });
 }
 
-async function authenticate(token: string) {
+async function authenticate(token: string): Promise<{ _id: string; name: string; role: string }> {
+  if (!token) throw new Error('Authentication required');
   const payload = verifyToken(token);
+  if (payload.sub.startsWith('guest_')) {
+    return { _id: payload.sub, name: 'Guest', role: payload.role };
+  }
   const user = await User.findById(payload.sub).lean();
   if (!user) {
     throw new Error('Invalid token');
   }
-  return { _id: user._id, name: user.name, role: user.role };
+  return { _id: String(user._id), name: user.name, role: user.role };
 }

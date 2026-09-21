@@ -18,6 +18,11 @@ export async function login(payload: { email: string; password: string }): Promi
   return res.data;
 }
 
+export async function guestLogin(name: string): Promise<AuthResponse> {
+  const res = await api.post<AuthResponse>('/auth/guest', { name });
+  return res.data;
+}
+
 export async function fetchMe(): Promise<{ user: { _id: string; name: string; email: string; role: string } }> {
   const res = await api.get('/auth/me');
   return res.data;
